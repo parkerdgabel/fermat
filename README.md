@@ -1,13 +1,19 @@
 # fermat
 
-FIXME: Write a one-line description of your library/project.
+Fermat is a powerful native number theory library for Clojurescript.
 
 ## Overview
 
-FIXME: Write a paragraph about the library/project and highlight its goals.
+Fermat is a native nuber theory library for Clojurescript. Fermat is currently under production 
+but the functions it can do now are:
+* Modular arithmatic (i.e. Modular Exponentiation, Modular Inverse, Chinese Remaineder Theorem)
+* Primality testing and generation.
+* Factorization.
+Planned additions include:
+* Discrete logrithms. 
 
 ## Setup
-
+***Fermat is not ready yet!***
 To get an interactive development environment run:
 
     lein figwheel
