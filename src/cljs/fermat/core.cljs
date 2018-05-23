@@ -68,6 +68,11 @@
                            (- t0 (* q t)) t
                            (- r0 (* q r)) r))))))
 
+(defn coprime
+  "Checks whether a and n are coprime."
+  [a n]
+  (= 1 (gcd a n)))
+
 (defn modexp
   "Computes the modular exponent of a mod m (i.e a^e mod m)"
   [a e m]
@@ -201,8 +206,8 @@
           (next-primes [sieve candidate]
             (if (sieve candidate)
               (recur (next-sieve sieve candidate) (+ candidate 2))
-              (cons candidate 
-                    (lazy-seq (next-primes (next-sieve sieve candidate) 
+              (cons candidate
+                    (lazy-seq (next-primes (next-sieve sieve candidate)
                                            (+ candidate 2))))))]
     (cons 2 (lazy-seq (next-primes {} 3)))))
 
@@ -222,20 +227,9 @@
   (take-while #(< % n) (lazy-primes)))
 
 ;; Factorization
-(defn- lenstra-elliptic-curve
-  [n]
-  (letfn [(pick-x-y-a
-            [n]
-            (for [_ (range 3)] (rand-int n)))
-          (pick-curve
-            [n]
-            (let [[x y a] (pick-x-y-a n)]
-              '(a (mod (- (modexp y 2 n) (modexp x 3 n) (mod (* a x)))))))
-          (pick-point
-            [n]
-            ())]))
 
 (defn p-1-factorization
+  "Computes a single factor of n. May or may not be prime."
   [n]
   (if (prime? n)
     n
