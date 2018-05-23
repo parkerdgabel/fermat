@@ -1,4 +1,17 @@
-(ns fermat.core)
+(ns fermat.core
+  (:require
+   [goog.string :as gstring]
+   [goog.string.format]))
+;; Specs
+(defn assert-prime
+  "Asserts that n is prime."
+  [n]
+  (assert (prime? n) (gstring/format "%s is not a prime." (str n))))
+
+(defn assert-number
+  "Asserts that a number is a positve integer."
+  [n]
+  (assert (and (int? n) (< 0 n)) (gstring/format "%s is not a positive integer." (str n))))
 
 ;; Basic operations
 (defn abs
@@ -22,6 +35,11 @@
         (if (even? n)
           (recur (* b b) (/ n 2) a)
           (recur b (dec n) (* b a)))))))
+
+(defn divmod
+  "Returns the quotient and remainder of a."
+  [a n]
+  (list (quot a n) (mod a n)))
 
 (defn gcd
   "Returns the greatest common denominator of a and b."
@@ -53,13 +71,13 @@
 (defn modexp
   "Computes the modular exponent of a mod m (i.e a^e mod m)"
   [a e m]
-  (defn m* [p q] (mod (* p q) m))
-  (loop [a a, e e, x 1]
-    (if (zero? e)
-      x
-      (if (even? e)
-        (recur (m* a a) (/ e 2) x)
-        (recur (m* a a) (quot e 2) (m* a x))))))
+  (letfn [(m* [p q] (mod (* p q) m))]
+         (loop [a a, e (mod e (totient m)), x 1]
+           (if (zero? e)
+             x
+             (if (even? e)
+               (recur (m* a a) (/ e 2) x)
+               (recur (m* a a) (quot e 2) (m* a x)))))))
 
 (defn modinv
   "Returns the modular inverse of a modulo n."
@@ -70,6 +88,14 @@
     (if (= gcd 1)
       ainv)))
 
+(defn totient
+  "Euler-totient function for n"
+  [n]
+  (assert-number n)
+  (if (prime? n)
+    (dec n)
+    (* n (reduce * (set (map #(- 1 (/ 1 %)) (factors n)))))))
+
 (defn order
 "Finds the order of a modulo n.(i.e. the smallest r > 1 such that a^r = 1 mod n)"
 [a n]
@@ -78,6 +104,15 @@
   (if (= (modexp a r n) 1)
     r
     (recur (inc r))))))
+
+(defn legendre
+  "Computes the Legendre symbol for a and p. p must be prime."
+  [a p]
+  (assert-prime p)
+  (let [val (modexp a (/ (dec p) 2) p)]
+    (if (= 1 val)
+      val
+      (- 1))))
 
 (defn chinese-remainder
   "Main routine to return the chinese remainder"
@@ -140,6 +175,7 @@
 (defn prime?
   "Tests the primality of n. Note for n larger than 10000 this function is probalitic."
  [n]
+  (assert-number n)
   (cond
    (= 2 n) true
    (even? n) false
@@ -229,12 +265,15 @@
 (defn factors
   "Finds all prime factors of n."
   [n]
-  (loop [n n
-         facts []]
-    (cond (= 1 n) (sort facts)
-          (= "5" (last (str n))) (recur (/ n 5) (conj facts 5))
-          (even? n) (recur (/ n 2) (conj facts 2))
-          :else (let [f (p-1-factorization n)]
-                  (if (prime? f)
-                    (recur (/ n f) (conj facts f))
-                    (recur (/ n f) (concat facts (factors f))))))))
+  (assert-number n)
+  (let [facts (for [x (primes 168) :let [y (mod n x)] :when (zero? y)] x)
+        n (/ n (reduce * facts))]
+    (loop [n n
+           facts facts]
+      (cond (= 1 n) (sort facts)
+            (= "5" (last (str n))) (recur (/ n 5) (conj facts 5))
+            (even? n) (recur (/ n 2) (conj facts 2))
+            :else (let [f (p-1-factorization n)]
+                    (if (prime? f)
+                      (recur (/ n f) (conj facts f))
+                      (recur (/ n f) (concat facts (factors f)))))))))
