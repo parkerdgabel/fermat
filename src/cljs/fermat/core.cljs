@@ -41,11 +41,13 @@
 (defn divmod
   "Returns the quotient and remainder of a."
   [a n]
+  (doseq [x [a n]] (assert-number x))
   (list (quot a n) (mod a n)))
 
 (defn gcd
   "Returns the greatest common denominator of a and b."
   [a b]
+  (doseq [x [a b]] (assert-number x))
   (if (zero? b)
     a
     (recur b (mod a b))))
@@ -55,6 +57,7 @@
   Returns a list containing the GCD and the Bézout coefficients
   corresponding to the inputs. "
   [a b]
+  (doseq [x [a b]] (assert-number x))
   (cond (zero? a) [(abs b) 0 1]
         (zero? b) [(abs a) 1 0]
         :else (loop [s 0
@@ -194,15 +197,18 @@
 
 ;(defn deterministic-miller-rabin
  ; (let))
-(defn- trial-division
+(defn trial-division
   "Primality by trial division."
   [n]
+  (assert-number n)
   (let [divides? (fn [k n] (zero? (mod k n)))]
-    (or (= 3 n)
-        (and (< 1 n)
-             (odd? n)
-             (not-any? (partial divides? n)
-                       (range 3 (inc (Math/sqrt n)) 2))))))
+    (cond (or (zero? n) (= 1 n)) false
+          (= 2 n) true
+          :else (loop [prims (primes< (int (+ 1 (Math/sqrt n))))]
+                  (cond (empty? prims) true
+                        (divides? n (first prims)) false
+                        :else (recur (rest prims)))))))
+    
 (defn fermat-primality
   [n]
   (let [a (if (odd? n)
