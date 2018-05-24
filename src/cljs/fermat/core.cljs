@@ -1,7 +1,8 @@
 (ns fermat.core
   (:require
    [goog.string :as gstring]
-   [goog.string.format]))
+   [goog.string.format]
+   [goog.math :as math]))
 ;; Specs
 (defn assert-prime
   "Asserts that n is prime."
@@ -11,7 +12,8 @@
 (defn assert-number
   "Asserts that a number is a positve integer."
   [n]
-  (assert (and (int? n) (< 0 n)) (gstring/format "%s is not a positive integer." (str n))))
+  (assert (< 0 n) (gstring/format "%s is not a positive integer." (str n)))
+  (assert (int? n) (gstring/format "%s is either not an integer or is too big." (str n))))
 
 ;; Basic operations
 (defn abs
@@ -76,13 +78,14 @@
 (defn modexp
   "Computes the modular exponent of a mod m (i.e a^e mod m)"
   [a e m]
-  (letfn [(m* [p q] (mod (* p q) m))]
-         (loop [a a, e (mod e (totient m)), x 1]
-           (if (zero? e)
-             x
-             (if (even? e)
-               (recur (m* a a) (/ e 2) x)
-               (recur (m* a a) (quot e 2) (m* a x)))))))
+  (doseq [x [a e m]] (assert-number x))
+  (letfn [(** [p q m] (mod (* p q) m))]
+    (loop [a (mod a m), e e, x 1]
+      (if (zero? e)
+        x
+        (if (even? e)
+          (recur (** a a m) (/ e 2) x)
+          (recur (** a a m) (quot e 2) (** a x m)))))))
 
 (defn modinv
   "Returns the modular inverse of a modulo n."
@@ -102,13 +105,34 @@
     (* n (reduce * (set (map #(- 1 (/ 1 %)) (factors n)))))))
 
 (defn order
-"Finds the order of a modulo n.(i.e. the smallest r > 1 such that a^r = 1 mod n)"
-[a n]
-(if (= (gcd a n) 1)
-(loop [r 1]
-  (if (= (modexp a r n) 1)
-    r
-    (recur (inc r))))))
+  "Finds the order of a modulo n.(i.e. the smallest r > 1 such that a^r = 1 mod n)"
+  [a n]
+  (if (= (gcd a n) 1)
+    (loop [r 1]
+      (if (= (modexp a r n) 1)
+        r
+        (recur (inc r))))))
+
+(defn primitive-root
+  "Returns the first primitve root of a given prime number."
+  [p]
+  (assert-prime p)
+  (let [s (dec p)
+        facts (set (factors s))]
+    (loop [a 2]
+      (if (empty? (filter #(= 1 %) (map #(modexp a (/ s %) p) facts)))
+        a
+        (recur (inc a))))))
+
+(defn smoothness
+  "Computes the smoothness of n."
+  [n]
+  (reduce max (factors n)))
+
+(defn pi
+  "Estimates the number of primes less than n. THIS IS NOT THE NUMBER PI! Its just the name of the functio used by mathematicians."
+  [n]
+  (/ n (.log js/Math n)))
 
 (defn legendre
   "Computes the Legendre symbol for a and p. p must be prime."
@@ -151,10 +175,10 @@
         ret-set
         (recur (conj ret-set (rand-nth nums)))))))
 
-
-(defn- miller-rabin
+(defn random-miller-rabin
   "Miller-Rabin primality test. Note this is a probabalistic primality test. It is not guarenteed to work."
   [n]
+  (assert-number n)
   (let [[k m] (find-k-m n)
         single-test (fn [a m]
                       (let [y (modexp a k n)]
@@ -168,26 +192,37 @@
                               :else (recur (modexp x 2 n) (dec r)))))))]
     (not-any? #(= true (single-test % m)) (k-rand-nums (min 1000 (quot n 2)) n))))
 
+;(defn deterministic-miller-rabin
+ ; (let))
 (defn- trial-division
   "Primality by trial division."
   [n]
   (let [divides? (fn [k n] (zero? (mod k n)))]
-      (or (= 3 n)
-          (and (< 1 n)
-               (odd? n)
-               (not-any? (partial divides? n)
-                         (range 3 (inc (Math/sqrt n)) 2))))))
+    (or (= 3 n)
+        (and (< 1 n)
+             (odd? n)
+             (not-any? (partial divides? n)
+                       (range 3 (inc (Math/sqrt n)) 2))))))
+(defn fermat-primality
+  [n]
+  (let [a (if (odd? n)
+            2
+            (loop [x 3]
+              (if (coprime x n)
+                x
+                (recur (+ 2 x)))))]
+    (= 1 (modexp a (dec n) n))))
+
 (defn prime?
   "Tests the primality of n. Note for n larger than 10000 this function is probalitic."
- [n]
+  [n]
   (assert-number n)
   (cond
-   (= 2 n) true
-   (even? n) false
-   (and (= "5" (last (str n))) (< 1 (count (str n)))) false
-   (< n 100000) (trial-division n)
-   :else (miller-rabin n)))
-
+    (= 2 n) true
+    (even? n) false
+    (and (= "5" (last (str n))) (< 1 (count (str n)))) false
+    (< n 100000) (trial-division n)
+    :else (random-miller-rabin n)))
 
 (defn lazy-primes
   "Returns a lazy sequence of primes."
@@ -198,17 +233,17 @@
                 (recur sieve m step)
                 (assoc sieve m step))))
           (next-sieve [sieve candidate]
-            (if-let [step (sieve candidate)]
-              (-> sieve
-                  (dissoc candidate)
-                  (enqueue candidate step))
-              (enqueue sieve candidate (+ candidate candidate))))
+                      (if-let [step (sieve candidate)]
+                        (-> sieve
+                            (dissoc candidate)
+                            (enqueue candidate step))
+                        (enqueue sieve candidate (+ candidate candidate))))
           (next-primes [sieve candidate]
-            (if (sieve candidate)
-              (recur (next-sieve sieve candidate) (+ candidate 2))
-              (cons candidate
-                    (lazy-seq (next-primes (next-sieve sieve candidate)
-                                           (+ candidate 2))))))]
+                       (if (sieve candidate)
+                         (recur (next-sieve sieve candidate) (+ candidate 2))
+                         (cons candidate
+                               (lazy-seq (next-primes (next-sieve sieve candidate)
+                                                      (+ candidate 2))))))]
     (cons 2 (lazy-seq (next-primes {} 3)))))
 
 (defn primes
@@ -241,10 +276,10 @@
                   b
                   (recur (modexp b (inc j) n) (inc j)))))
             (choose-coprime [n]
-              (loop [a 3]
-                (if (= 1 (gcd n a))
-                  a
-                  (recur (+ 2 a)))))]
+                            (loop [a 3]
+                              (if (= 1 (gcd n a))
+                                a
+                                (recur (+ 2 a)))))]
       (loop [a (if (odd? n)
                  2
                  (choose-coprime n))
