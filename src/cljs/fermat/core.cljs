@@ -1,20 +1,22 @@
 (ns fermat.core
   (:require
+   [cljs.spec.alpha :as s]
    [goog.string :as gstring]
    [goog.string.format]
-   [goog.math :as math]))
+   [goog.math :as math]
+   [cats.core :as m]
+   [cats.builtin]
+   [cats.monad.maybe :as maybe]))
+
+
 ;; Specs
-(defn assert-prime
-  "Asserts that n is prime."
-  [n]
-  (assert (prime? n) (gstring/format "%s is not a prime." (str n))))
+(s/def ::pos-num (s/and #(<= 0 %) int?))
 
-(defn assert-number
-  "Asserts that a number is a positve integer."
-  [n]
-  (assert (< 0 n) (gstring/format "%s is not a positive integer." (str n)))
-  (assert (int? n) (gstring/format "%s is either not an integer or is too big." (str n))))
+(s/def ::int int?)
 
+(s/def ::prime prime?)
+
+(s/def ::coprime coprime?)
 ;; Basic operations
 (defn abs
   "Returns the absolute value of x."
@@ -38,16 +40,26 @@
           (recur (* b b) (/ n 2) a)
           (recur b (dec n) (* b a)))))))
 
+(defn factorial
+  "Computes the factorial of n."
+  [n]
+  (if (<= n 0) 0
+      (letfn [(fact [n]
+                (if (= 1 n)
+                  1
+                  (* n (fact (dec n)))))]
+        (fact n))))
+
 (defn divmod
   "Returns the quotient and remainder of a."
   [a n]
-  (doseq [x [a n]] (assert-number x))
+  {:pre [(and (s/valid? ::pos-num a) (s/valid? ::pos-num n))]}
   (list (quot a n) (mod a n)))
 
 (defn gcd
   "Returns the greatest common denominator of a and b."
   [a b]
-  (doseq [x [a b]] (assert-number x))
+  {:pre [(and (s/valid? ::int a) (s/valid? ::int b))]}
   (if (zero? b)
     a
     (recur b (mod a b))))
@@ -57,7 +69,7 @@
   Returns a list containing the GCD and the Bézout coefficients
   corresponding to the inputs. "
   [a b]
-  (doseq [x [a b]] (assert-number x))
+  {:pre [(and (s/valid? ::int a) (s/valid? ::int b))]}
   (cond (zero? a) [(abs b) 0 1]
         (zero? b) [(abs a) 1 0]
         :else (loop [s 0
@@ -73,17 +85,34 @@
                            (- t0 (* q t)) t
                            (- r0 (* q r)) r))))))
 
-(defn coprime
+(defn floor
+  "Returns the nearest integer less than n."
+  [n]
+  (if (int? n)
+    n
+    (int n)))
+
+(defn ciel
+  "Returns the cieling of n."
+  [n]
+  (if (int? n)
+    n
+    (if (< 0 n)
+      (+ 1 (int n))
+      (- (int n) 1))))
+
+(defn coprime?
   "Checks whether a and n are coprime."
   [a n]
+  {:pre [(and (s/valid? ::int a) (s/valid? ::int n))]}
   (= 1 (gcd a n)))
 
 (defn modexp
   "Computes the modular exponent of a mod m (i.e a^e mod m)"
   [a e m]
-  (doseq [x [a e m]] (assert-number x))
+  {:pre [(and (s/valid? ::int a) (s/valid? ::int e) (s/valid? ::int m))]}
   (letfn [(** [p q m] (mod (* p q) m))]
-    (loop [a (mod a m), e e, x 1]
+    (loop [a (mod a m), e (mod e (totient m)), x 1]
       (if (zero? e)
         x
         (if (even? e)
@@ -102,7 +131,7 @@
 (defn totient
   "Euler-totient function for n"
   [n]
-  (assert-number n)
+  {:pre [(s/valid? ::int n)]}
   (if (prime? n)
     (dec n)
     (* n (reduce * (set (map #(- 1 (/ 1 %)) (factors n)))))))
@@ -110,16 +139,15 @@
 (defn order
   "Finds the order of a modulo n.(i.e. the smallest r > 1 such that a^r = 1 mod n)"
   [a n]
-  (if (= (gcd a n) 1)
-    (loop [r 1]
-      (if (= (modexp a r n) 1)
-        r
-        (recur (inc r))))))
+  (loop [r 1]
+    (if (= (modexp a r n) 1)
+      r
+      (recur (inc r)))))
 
 (defn primitive-root
   "Returns the first primitve root of a given prime number."
   [p]
-  (assert-prime p)
+  {:pre [(s/valid? ::prime p)]}
   (let [s (dec p)
         facts (set (factors s))]
     (loop [a 2]
@@ -135,12 +163,13 @@
 (defn pi
   "Estimates the number of primes less than n. THIS IS NOT THE NUMBER PI! Its just the name of the functio used by mathematicians."
   [n]
+  {:pre [(s/valid? ::pos-num n)]}
   (/ n (.log js/Math n)))
 
 (defn legendre
   "Computes the Legendre symbol for a and p. p must be prime."
   [a p]
-  (assert-prime p)
+  {:pre [(s/valid? ::prime p)]}
   (let [val (modexp a (/ (dec p) 2) p)]
     (if (= 1 val)
       val
@@ -181,7 +210,7 @@
 (defn random-miller-rabin
   "Miller-Rabin primality test. Note this is a probabalistic primality test. It is not guarenteed to work."
   [n]
-  (assert-number n)
+  {:pre [(s/valid? ::pos-num n)]}
   (let [[k m] (find-k-m n)
         single-test (fn [a m]
                       (let [y (modexp a k n)]
@@ -200,7 +229,7 @@
 (defn trial-division
   "Primality by trial division."
   [n]
-  (assert-number n)
+  {:pre [(s/valid? ::pos-num n)]}
   (let [divides? (fn [k n] (zero? (mod k n)))]
     (cond (or (zero? n) (= 1 n)) false
           (= 2 n) true
@@ -208,13 +237,14 @@
                   (cond (empty? prims) true
                         (divides? n (first prims)) false
                         :else (recur (rest prims)))))))
-    
+
 (defn fermat-primality
   [n]
+  {:pre [(s/valid? ::pos-num n)]}
   (let [a (if (odd? n)
             2
             (loop [x 3]
-              (if (coprime x n)
+              (if (coprime? x n)
                 x
                 (recur (+ 2 x)))))]
     (= 1 (modexp a (dec n) n))))
@@ -222,13 +252,12 @@
 (defn prime?
   "Tests the primality of n. Note for n larger than 10000 this function is probalitic."
   [n]
-  (assert-number n)
+  {:pre [(s/valid? ::pos-num n)]}
   (cond
     (= 2 n) true
     (even? n) false
-    (and (= "5" (last (str n))) (< 1 (count (str n)))) false
     (< n 100000) (trial-division n)
-    :else (random-miller-rabin n)))
+    :else (and (fermat-primality n) (random-miller-rabin n))))
 
 (defn lazy-primes
   "Returns a lazy sequence of primes."
@@ -272,6 +301,7 @@
 (defn p-1-factorization
   "Computes a single factor of n. May or may not be prime."
   [n]
+  {:pre [(s/valid? ::int n)]}
   (if (prime? n)
     n
     (letfn [(modular-factorial
@@ -283,7 +313,7 @@
                   (recur (modexp b (inc j) n) (inc j)))))
             (choose-coprime [n]
                             (loop [a 3]
-                              (if (= 1 (gcd n a))
+                              (if (coprime? a n)
                                 a
                                 (recur (+ 2 a)))))]
       (loop [a (if (odd? n)
@@ -300,7 +330,7 @@
 (defn factors
   "Finds all prime factors of n."
   [n]
-  (assert-number n)
+  {:pre [(s/valid? ::pos-num n)]}
   (let [facts (for [x (primes 168) :let [y (mod n x)] :when (zero? y)] x)
         n (/ n (reduce * facts))]
     (loop [n n
@@ -312,3 +342,22 @@
                     (if (prime? f)
                       (recur (/ n f) (conj facts f))
                       (recur (/ n f) (concat facts (factors f)))))))))
+
+;; Discrete Logarithm
+(defn baby-step-giant-step
+  [alpha beta p N]
+  (assert (<= (dec p) (* N N)) (gstring/format "%s^2 must be greater that %s." (str N) (str (dec p))))
+  (letfn [(build-baby-steps [alpha p N]
+            (loop [baby-map {}, j 0]
+              (if (= j N)
+                baby-map
+                (recur (assoc baby-map (modexp alpha j p) j) (inc j)))))
+          (check-giant-steps [alpha beta N p baby-steps]
+            (loop [k 0]
+              (let [g-step (modexp (* beta alpha) (- (* N k)) p)]
+                (cond
+                  (= k N) nil
+                  (contains? baby-steps :g-step) [(get baby-steps :g-step) (* N k)]
+                  :else (recur (inc k))))))]
+    (if-let [[j Nk] (check-giant-steps alpha beta N p (build-baby-steps alpha p N))]
+      (+ j Nk))))
