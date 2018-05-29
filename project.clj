@@ -10,8 +10,8 @@
 
   :dependencies [[org.clojure/clojure "1.9.0"]
                  [org.clojure/clojurescript "1.9.946"]
-                 [org.clojure/core.async  "0.4.474"]
-                 [funcool/cats "2.2.0"]]
+                 [org.clojure/core.async  "0.4.474"]]
+             
 
   :plugins [[lein-figwheel "0.5.15"]
             [lein-cljsbuild "1.1.7" :exclusions [[org.clojure/clojure]]]]
