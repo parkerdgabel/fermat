@@ -13,7 +13,6 @@ Planned additions include:
 * Discrete logrithms. 
 
 ## Setup
-***Fermat is not ready yet!***
 To get an interactive development environment run:
 
     lein figwheel
