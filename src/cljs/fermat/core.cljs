@@ -8,11 +8,12 @@
    [cats.builtin]
    [cats.monad.maybe :as maybe]))
 
-
 ;; Specs
 (s/def ::pos-num (s/and #(<= 0 %) int?))
 
 (s/def ::int int?)
+
+(s/def ::composite #(not (prime? %)))
 
 (s/def ::prime prime?)
 
@@ -166,6 +167,11 @@
   {:pre [(s/valid? ::pos-num n)]}
   (/ n (.log js/Math n)))
 
+(defn composite-pi
+  "Returns the number of composites less than n."
+  [n]
+  {:pre [(s/valid? ::pos-num n)]}
+  (- n (pi n)))
 (defn legendre
   "Computes the Legendre symbol for a and p. p must be prime."
   [a p]
@@ -239,6 +245,7 @@
                         :else (recur (rest prims)))))))
 
 (defn fermat-primality
+  "Fermat primality test."
   [n]
   {:pre [(s/valid? ::pos-num n)]}
   (let [a (if (odd? n)
@@ -256,7 +263,7 @@
   (cond
     (= 2 n) true
     (even? n) false
-    (< n 100000) (trial-division n)
+    (< n 10000000) (trial-division n)
     :else (and (fermat-primality n) (random-miller-rabin n))))
 
 (defn lazy-primes
@@ -296,6 +303,17 @@
   [n]
   (take-while #(< % n) (lazy-primes)))
 
+(defn primorial
+  "Returns the product of the first n primes."
+  [n]
+  {:pre [(s/valid? ::pos-num n)]}
+  (apply * (primes n)))
+
+(defn primorial<
+  "Returns the product of the first primes < n."
+  [n]
+  {:pre [(s/valid? ::pos-num n)]}
+  (apply * (primes< n)))
 ;; Factorization
 
 (defn p-1-factorization
@@ -330,7 +348,7 @@
 (defn factors
   "Finds all prime factors of n."
   [n]
-  {:pre [(s/valid? ::pos-num n)]}
+  {:pre [(and (s/valid? ::pos-num n) (s/valid? ::composite n))]}
   (let [facts (for [x (primes 168) :let [y (mod n x)] :when (zero? y)] x)
         n (/ n (reduce * facts))]
     (loop [n n
