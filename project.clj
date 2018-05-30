@@ -1,17 +1,14 @@
 (defproject fermat "0.1.0"
   :description "Fermat is a simple number theory library for clojurescript."
-  :url "http://example.com/FIXME"
+  :url "https://github.com/parkerdgabel/fermat"
   :license {:name "Eclipse Public License"
             :url "http://www.eclipse.org/legal/epl-v10.html"}
 
-  
-  
   :min-lein-version "2.7.1"
 
   :dependencies [[org.clojure/clojure "1.9.0"]
                  [org.clojure/clojurescript "1.9.946"]
                  [org.clojure/core.async  "0.4.474"]]
-             
 
   :plugins [[lein-figwheel "0.5.15"]
             [lein-cljsbuild "1.1.7" :exclusions [[org.clojure/clojure]]]]
@@ -87,10 +84,7 @@
 
              ;; to pipe all the output to the repl
              ;; :server-logfile false
-             }
-
-
-  ;; Setting up nREPL for Figwheel and ClojureScript dev
+};; Setting up nREPL for Figwheel and ClojureScript dev
   ;; Please see:
   ;; https://github.com/bhauman/lein-figwheel/wiki/Using-the-Figwheel-REPL-within-NRepl
   :profiles {:dev {:dependencies [[binaryage/devtools "0.9.9"]
