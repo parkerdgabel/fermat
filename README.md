@@ -1,7 +1,6 @@
 # Fermat
 
 Fermat is a powerful native number theory library for Clojurescript.
-[fermat "0.1.0"]
 
 ## Overview
 
@@ -14,6 +13,8 @@ Planned additions include:
 * Discrete logrithms. 
 
 ## Setup
+Put this into your projects.clj dependencies.
+[fermat "0.1.0"]
 To get an interactive development environment run:
 
     lein figwheel
