@@ -1,6 +1,7 @@
 # Fermat
 
 Fermat is a powerful native number theory library for Clojurescript.
+[fermat "0.1.0"]
 
 ## Overview
 
