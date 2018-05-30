@@ -14,7 +14,9 @@ Planned additions include:
 
 ## Setup
 Put this into your projects.clj dependencies.
+```
 [fermat "0.1.0"]
+```
 To get an interactive development environment run:
 
     lein figwheel
